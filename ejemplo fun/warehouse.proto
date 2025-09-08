@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package warehouse;
+
+// Servicio principal que expone las operaciones
+service WarehouseService {
+  // Sustituye GET /coords
+  rpc GetCoords (Empty) returns (CoordsResponse);
+
+  // Sustituye POST /pickup
+  rpc Pickup (PickupRequest) returns (Ack);
+
+  // Sustituye POST /drop
+  rpc Drop (DropRequest) returns (Ack);
+
+  // Sustituye POST /assign
+  rpc AssignTask (AssignRequest) returns (Ack);
+}
+
+// -------------------
+// Mensajes
+// -------------------
+
+// Vacío para llamadas sin parámetros
+message Empty {}
+
+// Coordenadas en 3D
+message Position {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+// Objeto en la simulación (Agente o Caja)
+message ObjectData {
+  string id = 1;       // Ejemplo: "Agent0" o "Box1"
+  Position position = 2;
+  double speed = 3;    // Velocidad sugerida
+}
+
+// Respuesta para GetCoords
+message CoordsResponse {
+  int64 timestamp = 1;
+  repeated ObjectData objects = 2;
+}
+
+// Solicitud para Pickup
+message PickupRequest {
+  string agent = 1;  // Ej: "Agent0"
+  string box = 2;    // Ej: "Box1"
+}
+
+// Solicitud para Drop
+message DropRequest {
+  string agent = 1;
+  string box = 2;
+  Position position = 3;
+}
+
+// Solicitud para AssignTask
+message AssignRequest {
+  string agent = 1;
+  string box = 2;
+  Position target = 3;
+}
+
+// Respuesta simple de confirmación
+message Ack {
+  bool ok = 1;
+  string error = 2;
+}

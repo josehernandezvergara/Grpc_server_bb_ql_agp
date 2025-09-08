@@ -1,0 +1,29 @@
+{
+  "alpha": 0.15,
+  "gamma": 0.99,
+  "epsilon": 0.6,
+  "epsilon_decay": 0.9997,
+  "min_epsilon": 0.02,
+  "grid_size": 12,
+  "battery_bins": 11,
+  "save_every_steps": 1000,
+  "qfile": "qtable.pkl",
+  "charger_positions": [
+    [
+      0,
+      0
+    ]
+  ],
+  "actions": [
+    "N",
+    "S",
+    "E",
+    "W",
+    "INTERACT",
+    "WAIT"
+  ],
+    "drop_zone": [11, 11],   
+    "wait_zone": [0, 0],     
+    "load_zone": [0, 11],    
+    "zone_radius": 1         
+}
