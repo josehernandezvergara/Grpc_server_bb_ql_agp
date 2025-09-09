@@ -4,7 +4,7 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Threading;
 using Grpc.Core;
-using Warehouse; // namespace del código generado por .proto
+using Warehouse; // namespace del codigo generado por .proto
 
 public class GrpcPollingClient : MonoBehaviour
 {
@@ -15,6 +15,7 @@ public class GrpcPollingClient : MonoBehaviour
     [Header("Prefabs")]
     public GameObject agentPrefab;
     public GameObject boxPrefab;
+    public GameObject obstaclePrefab; // nuevo: prefab para obstaculos
 
     Channel channel;
     WarehouseService.WarehouseServiceClient client;
@@ -26,7 +27,6 @@ public class GrpcPollingClient : MonoBehaviour
     {
         Debug.Log("GrpcPollingClient: iniciando...");
         cts = new CancellationTokenSource();
-        // start background polling
         _ = Task.Run(() => PollLoop(cts.Token));
     }
 
@@ -38,7 +38,6 @@ public class GrpcPollingClient : MonoBehaviour
             try
             {
                 if (channel == null) CreateChannel();
-                // blocking call in background thread
                 var reply = await Task.Run(() => client.GetCoords(new Empty()), token);
                 responsesQueue.Enqueue(reply);
                 attempt = 0;
@@ -103,8 +102,12 @@ public class GrpcPollingClient : MonoBehaviour
 
             if (!entities.TryGetValue(id, out var go) || go == null)
             {
-                GameObject prefab = id.StartsWith("Agent") ? agentPrefab : boxPrefab;
-                if (prefab == null) go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                GameObject prefab = null;
+                if (id.StartsWith("Agent")) prefab = agentPrefab;
+                else if (id.StartsWith("Box")) prefab = boxPrefab;
+                else if (id.StartsWith("Obstacle")) prefab = obstaclePrefab;
+                // fallback
+                if (prefab == null) go = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 else go = Instantiate(prefab, pos, Quaternion.identity);
                 go.name = id;
                 entities[id] = go;

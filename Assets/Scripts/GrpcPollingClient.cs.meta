@@ -3,7 +3,10 @@ guid: 29c5ece4f5907ed448467e7abb1bd87c
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - agentPrefab: {fileID: 8568331535349781027, guid: 74c6c0a855288554db971f9ec62e693a, type: 3}
+  - boxPrefab: {fileID: 4754053741509650440, guid: a912565417872cc499590f9b10f68888, type: 3}
+  - obstaclePrefab: {fileID: 1949103366816454618, guid: 6a9ddc5c25c2ce540b6822995d4c27c2, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
