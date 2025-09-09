@@ -1,6 +1,17 @@
 # blackboard.py
 # lista de tareas y asignaciones entre cajas y agentes
 # editar: logica de asignacion si necesitas prioridad/perfiles
+#
+# descripcion:
+# - BlackBoard.model: referencia al modelo que la contiene
+# - BlackBoard.tasks: lista de diccionarios {obj_id, start, target, done}
+# - BlackBoard.assignments: mapping box_id -> agent_id (tareas reservadas)
+#
+# metodos:
+# - add_task(obj_id, start_grid, target_grid, min_dist=0.5): anade una tarea a la lista
+# - get_task(agent_id): asigna y retorna la primera tarea no realizada y no asignada
+# - complete_task_for_box(box_id): marca la tarea como done y libera la asignacion
+# - assign_task_to_agent(agent_id, box_id, target_grid): fuerza asignacion y crea tarea si es necesario
 
 class BlackBoard:
     def __init__(self, model):

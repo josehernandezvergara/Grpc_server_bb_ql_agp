@@ -1,6 +1,12 @@
 # server.py
 # entrypoint minimal: crea el modelo, el servidor grpc y maneja señales
 # editar: parametros iniciales agentes/objetos y puerto
+#
+# descripcion:
+# - handle_sigterm(signum, frame): guarda q-table y detiene el servidor al recibir SIGINT/SIGTERM
+# - main block: instancia WarehouseModel con parametros por defecto, registra el servicio grpc
+#   y ejecuta el server en 0.0.0.0:50051 hasta interrumpido
+
 
 import signal
 import sys

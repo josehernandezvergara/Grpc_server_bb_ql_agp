@@ -1,6 +1,17 @@
 # grpc_service.py
 # implementacion del servicio grpc que expone getcoords, pickup, drop y assigntask
 # no editar la interfaz grpc aqui salvo que se regenere warehouse_pb2.py
+# comentarios en minuscula y sin acentos
+#
+# descripcion de los rpc expuestos (segun warehouse.proto):
+# - GetCoords(request): avanza un paso del modelo y devuelve CoordsResponse con lista de ObjectData
+#   - objectdata.id: string id del objeto (AgentX, BoxY, Obstaclegx_gz)
+#   - objectdata.position: Position(x,y,z) en coordenadas world
+# - Pickup(request): request.agent (AgentN), request.box (BoxM) -> ack
+# - Drop(request): request.agent, request.box, request.position -> ack y completa tarea
+# - AssignTask(request): define target para una caja y asigna a un agente
+# - GetObstacles(request): devuelve ObstaclesList con obstaculos en world
+
 
 import time
 import warehouse_pb2
@@ -14,8 +25,10 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
         self.model = model
 
     def GetCoords(self, request, context):
+        # cada llamada avanza 1 step del modelo
         self.model.step()
         objects = []
+        # agentes
         for ag in self.model.workers:
             obj = warehouse_pb2.ObjectData(
                 id=f"Agent{ag.id}",
@@ -23,15 +36,51 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
                 speed=1.0
             )
             objects.append(obj)
+
+        # cajas: si estan siendo llevadas, reportar en la posicion del agente
         for box in self.model.boxes:
+            if getattr(box, "carried_by", None) is not None:
+                carrier = self.model.workers_dict.get(box.carried_by, None)
+                if carrier:
+                    bx, by, bz = carrier.pos
+                else:
+                    if getattr(box, "grid_pos", None) is not None:
+                        bx, by, bz = grid_to_world(box.grid_pos)
+                    else:
+                        bx, by, bz = box.pos
+            else:
+                if getattr(box, "grid_pos", None) is not None:
+                    bx, by, bz = grid_to_world(box.grid_pos)
+                else:
+                    bx, by, bz = box.pos
+
             obj = warehouse_pb2.ObjectData(
                 id=f"Box{box.id}",
-                position=warehouse_pb2.Position(x=box.pos[0], y=box.pos[1], z=box.pos[2]),
+                position=warehouse_pb2.Position(x=bx, y=by, z=bz),
                 speed=0.5
             )
             objects.append(obj)
+
+        # obstaculos (agregar al mismo array para que unity solo consuma getcoords)
+        # ya no imprimimos el mapeo aqui (impresion unica al iniciar el modelo)
+        for obs in getattr(self.model, "obstacles", []):
+            try:
+                wx, wy, wz = grid_to_world(obs)
+            except Exception:
+                if isinstance(obs, (list, tuple)) and len(obs) >= 3:
+                    wx = float(obs[0]); wy = float(obs[1]); wz = float(obs[2])
+                else:
+                    continue
+            obj = warehouse_pb2.ObjectData(
+                id=f"Obstacle{obs[0]}_{obs[1]}",
+                position=warehouse_pb2.Position(x=wx, y=wy, z=wz),
+                speed=0.0
+            )
+            objects.append(obj)
+
         return warehouse_pb2.CoordsResponse(timestamp=int(time.time()), objects=objects)
 
+    # pickup/drop/assigntask/others siguen igual...
     def Pickup(self, request, context):
         aid = int(request.agent.replace("Agent", ""))
         bid = int(request.box.replace("Box", ""))
@@ -42,8 +91,9 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
             self.model.blackboard.assignments[bid] = aid
             box = next((b for b in self.model.boxes if b.id == bid), None)
             if box:
-                box.grid_pos = ag.grid_pos
-                box.pos = grid_to_world(box.grid_pos)
+                box.carried_by = aid
+                box.grid_pos = None
+                box.pos = ag.pos[:]
         return warehouse_pb2.Ack(ok=True)
 
     def Drop(self, request, context):
@@ -55,6 +105,7 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
             gx, gz = world_to_grid([pos.x, pos.y, pos.z])
             box.grid_pos = (gx, gz)
             box.pos = grid_to_world(box.grid_pos)
+            box.carried_by = None
         self.model.blackboard.complete_task_for_box(bid)
         ag = self.model.workers_dict.get(aid)
         if ag:
@@ -75,10 +126,24 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
         target = (max(0, min(GRID-1, tx)), max(0, min(GRID-1, tz)))
         self.model.blackboard.assign_task_to_agent(aid, bid, target)
         return warehouse_pb2.Ack(ok=True)
-    
-    def getObstacles(self, request, context):
-        obstacles = [
-            warehouse_pb2.Obstacle(x=obs[0], y=obs[1])
-            for obs in self.model.obstacles
-        ]
+
+    def GetObstacles(self, request, context):
+        obstacles = []
+        for obs in getattr(self.model, "obstacles", set()):
+            gx, gz = obs
+            world = grid_to_world((gx, gz))
+            o = warehouse_pb2.Obstacle()
+            try:
+                setattr(o, "x", float(world[0]))
+            except Exception:
+                pass
+            try:
+                setattr(o, "z", float(world[2]))
+            except Exception:
+                pass
+            try:
+                setattr(o, "y", float(world[2]))
+            except Exception:
+                pass
+            obstacles.append(o)
         return warehouse_pb2.ObstaclesList(obstacles=obstacles)

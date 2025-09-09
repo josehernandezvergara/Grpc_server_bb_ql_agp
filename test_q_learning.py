@@ -1,9 +1,12 @@
 # test_q_learning.py
 # Script de prueba para validar Q-learning en el simulador (solo Python, sin Unity).
-# Usa las clases definidas en server.py (WarehouseModel, WorkerAgent, qlearn).
+# usa las clases definidas en server.py (WarehouseModel, WorkerAgent, qlearn).
 #
-# Genera tres gráficas: reward_per_step.png, epsilon.png, deliveries.png
-# Opciones de CLI: --agents N, --objects M, --steps S, --inference (quita exploración)
+# descripcion general:
+# - run_test(agents, objects, steps, save_plots, inference, log_every)
+#   - ejecuta training online por 'steps' pasos y guarda graficas si save_plots=True
+# - main(): parsea argumentos y llama run_test
+
 
 import argparse
 import time

@@ -2,6 +2,24 @@
 # gestor de q-learning: carga, guarda, elegir accion y actualizar
 # editar: hiperparametros en q_config.json via settings.py
 # el objeto qlearn se crea al importar el modulo y refleja el modo (train/inference)
+#
+# descripcion de la clase qlearning y sus metodos:
+# - QLearning.Q: diccionario clave->vector de q-values (key = estado, vector len = num acciones)
+# - QLearning.epsilon: probabilidad de exploracion (epsilon-greedy)
+# - QLearning.alpha, gamma: hiperparametros de aprendizaje
+# - QLearning.file, inference_file: rutas para guardar/cargar la tabla
+# - QLearning.inference_mode: flag que indica que no se actualiza la Q
+#
+# metodos principales:
+# - _load_file(path): carga pickle serializado y convierte a numpy arrays
+# - _ensure(key): asegura que exista un vector q para la key y lo inicializa a zeros
+# - state_key(...): forma la tupla de estado usada como clave en la tabla
+# - choose_action(state_key): epsilon-greedy, devuelve indice de accion (int)
+# - update(s_key,a,r,s2_key): actualizacion q-learning clasica
+# - decay_epsilon(): reduce epsilon segun EPS_DECAY hasta EPS_MIN
+# - save(write_inference_snapshot=False): guarda tabla de forma atomica y opcional snapshot de inferencia
+# - load_inference(): intenta cargar el snapshot de inferencia y fija epsilon a 0
+
 
 import os
 import pickle
