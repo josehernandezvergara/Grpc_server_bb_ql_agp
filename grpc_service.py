@@ -1,6 +1,6 @@
 # grpc_service.py
 # implementacion del servicio grpc que expone getcoords, pickup, drop y assigntask
-# no editar la interfaz grpc aqui salvo que regeneres warehouse_pb2.py
+# no editar la interfaz grpc aqui salvo que se regenere warehouse_pb2.py
 
 import time
 import warehouse_pb2
@@ -75,3 +75,10 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
         target = (max(0, min(GRID-1, tx)), max(0, min(GRID-1, tz)))
         self.model.blackboard.assign_task_to_agent(aid, bid, target)
         return warehouse_pb2.Ack(ok=True)
+    
+    def getObstacles(self, request, context):
+        obstacles = [
+            warehouse_pb2.Obstacle(x=obs[0], y=obs[1])
+            for obs in self.model.obstacles
+        ]
+        return warehouse_pb2.ObstaclesList(obstacles=obstacles)

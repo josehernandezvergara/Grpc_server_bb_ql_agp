@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fwarehouse.proto\x12\twarehouse\"\x07\n\x05\x45mpty\"+\n\x08Position\x12\t\n\x01x\x18\x01 \x01(\x01\x12\t\n\x01y\x18\x02 \x01(\x01\x12\t\n\x01z\x18\x03 \x01(\x01\"N\n\nObjectData\x12\n\n\x02id\x18\x01 \x01(\t\x12%\n\x08position\x18\x02 \x01(\x0b\x32\x13.warehouse.Position\x12\r\n\x05speed\x18\x03 \x01(\x01\"K\n\x0e\x43oordsResponse\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\x12&\n\x07objects\x18\x02 \x03(\x0b\x32\x15.warehouse.ObjectData\"+\n\rPickupRequest\x12\r\n\x05\x61gent\x18\x01 \x01(\t\x12\x0b\n\x03\x62ox\x18\x02 \x01(\t\"P\n\x0b\x44ropRequest\x12\r\n\x05\x61gent\x18\x01 \x01(\t\x12\x0b\n\x03\x62ox\x18\x02 \x01(\t\x12%\n\x08position\x18\x03 \x01(\x0b\x32\x13.warehouse.Position\"P\n\rAssignRequest\x12\r\n\x05\x61gent\x18\x01 \x01(\t\x12\x0b\n\x03\x62ox\x18\x02 \x01(\t\x12#\n\x06target\x18\x03 \x01(\x0b\x32\x13.warehouse.Position\" \n\x03\x41\x63k\x12\n\n\x02ok\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t2\xe8\x01\n\x10WarehouseService\x12\x38\n\tGetCoords\x12\x10.warehouse.Empty\x1a\x19.warehouse.CoordsResponse\x12\x32\n\x06Pickup\x12\x18.warehouse.PickupRequest\x1a\x0e.warehouse.Ack\x12.\n\x04\x44rop\x12\x16.warehouse.DropRequest\x1a\x0e.warehouse.Ack\x12\x36\n\nAssignTask\x12\x18.warehouse.AssignRequest\x1a\x0e.warehouse.Ackb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0fwarehouse.proto\x12\twarehouse\"\x07\n\x05\x45mpty\"+\n\x08Position\x12\t\n\x01x\x18\x01 \x01(\x01\x12\t\n\x01y\x18\x02 \x01(\x01\x12\t\n\x01z\x18\x03 \x01(\x01\"N\n\nObjectData\x12\n\n\x02id\x18\x01 \x01(\t\x12%\n\x08position\x18\x02 \x01(\x0b\x32\x13.warehouse.Position\x12\r\n\x05speed\x18\x03 \x01(\x01\"K\n\x0e\x43oordsResponse\x12\x11\n\ttimestamp\x18\x01 \x01(\x03\x12&\n\x07objects\x18\x02 \x03(\x0b\x32\x15.warehouse.ObjectData\"+\n\rPickupRequest\x12\r\n\x05\x61gent\x18\x01 \x01(\t\x12\x0b\n\x03\x62ox\x18\x02 \x01(\t\"P\n\x0b\x44ropRequest\x12\r\n\x05\x61gent\x18\x01 \x01(\t\x12\x0b\n\x03\x62ox\x18\x02 \x01(\t\x12%\n\x08position\x18\x03 \x01(\x0b\x32\x13.warehouse.Position\"P\n\rAssignRequest\x12\r\n\x05\x61gent\x18\x01 \x01(\t\x12\x0b\n\x03\x62ox\x18\x02 \x01(\t\x12#\n\x06target\x18\x03 \x01(\x0b\x32\x13.warehouse.Position\" \n\x03\x41\x63k\x12\n\n\x02ok\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\" \n\x08Obstacle\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"7\n\rObstaclesList\x12&\n\tobstacles\x18\x01 \x03(\x0b\x32\x13.warehouse.Obstacle2\xa4\x02\n\x10WarehouseService\x12\x38\n\tGetCoords\x12\x10.warehouse.Empty\x1a\x19.warehouse.CoordsResponse\x12\x32\n\x06Pickup\x12\x18.warehouse.PickupRequest\x1a\x0e.warehouse.Ack\x12.\n\x04\x44rop\x12\x16.warehouse.DropRequest\x1a\x0e.warehouse.Ack\x12\x36\n\nAssignTask\x12\x18.warehouse.AssignRequest\x1a\x0e.warehouse.Ack\x12:\n\x0cGetObstacles\x12\x10.warehouse.Empty\x1a\x18.warehouse.ObstaclesListb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -47,6 +47,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_ASSIGNREQUEST']._serialized_end=448
   _globals['_ACK']._serialized_start=450
   _globals['_ACK']._serialized_end=482
-  _globals['_WAREHOUSESERVICE']._serialized_start=485
-  _globals['_WAREHOUSESERVICE']._serialized_end=717
+  _globals['_OBSTACLE']._serialized_start=484
+  _globals['_OBSTACLE']._serialized_end=516
+  _globals['_OBSTACLESLIST']._serialized_start=518
+  _globals['_OBSTACLESLIST']._serialized_end=573
+  _globals['_WAREHOUSESERVICE']._serialized_start=576
+  _globals['_WAREHOUSESERVICE']._serialized_end=868
 # @@protoc_insertion_point(module_scope)

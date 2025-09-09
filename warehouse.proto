@@ -15,6 +15,9 @@ service WarehouseService {
 
   // Sustituye POST /assign
   rpc AssignTask (AssignRequest) returns (Ack);
+
+  //get obstacles
+  rpc GetObstacles(Empty) returns (ObstaclesList);
 }
 
 // -------------------
@@ -68,4 +71,13 @@ message AssignRequest {
 message Ack {
   bool ok = 1;
   string error = 2;
+}
+
+message Obstacle {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message ObstaclesList {
+  repeated Obstacle obstacles = 1;
 }

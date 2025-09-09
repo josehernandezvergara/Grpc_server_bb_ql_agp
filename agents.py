@@ -86,6 +86,9 @@ class WorkerAgent(ap.Agent):
         new_x, new_y = x, y
         moved = False
 
+        def isObstacle(cell : tuple) -> bool:
+            return cell in self.model.obstacles
+        
         def cell_occupied_by_agent(cell):
             for other in self.model.workers:
                 if other is self: continue
@@ -100,7 +103,7 @@ class WorkerAgent(ap.Agent):
         if action == "N":
             new_x = x
             new_y = clamp(y+1, 0, GRID-1)
-            if (new_x, new_y) != (x, y) and not cell_occupied_by_agent((new_x, new_y)):
+            if (new_x, new_y) != (x, y) and not cell_occupied_by_agent((new_x, new_y)) and not isObstacle((new_x, new_y)):
                 moved = True
             else:
                 reward += BLOCK_PENALTY
@@ -108,7 +111,7 @@ class WorkerAgent(ap.Agent):
         elif action == "S":
             new_x = x
             new_y = clamp(y-1, 0, GRID-1)
-            if (new_x, new_y) != (x, y) and not cell_occupied_by_agent((new_x, new_y)):
+            if (new_x, new_y) != (x, y) and not cell_occupied_by_agent((new_x, new_y)) and not isObstacle((new_x, new_y)):
                 moved = True
             else:
                 reward += BLOCK_PENALTY
@@ -116,7 +119,7 @@ class WorkerAgent(ap.Agent):
         elif action == "E":
             new_x = clamp(x+1, 0, GRID-1)
             new_y = y
-            if (new_x, new_y) != (x, y) and not cell_occupied_by_agent((new_x, new_y)):
+            if (new_x, new_y) != (x, y) and not cell_occupied_by_agent((new_x, new_y))and not isObstacle((new_x, new_y)):
                 moved = True
             else:
                 reward += BLOCK_PENALTY
@@ -124,7 +127,7 @@ class WorkerAgent(ap.Agent):
         elif action == "W":
             new_x = clamp(x-1, 0, GRID-1)
             new_y = y
-            if (new_x, new_y) != (x, y) and not cell_occupied_by_agent((new_x, new_y)):
+            if (new_x, new_y) != (x, y) and not cell_occupied_by_agent((new_x, new_y)) and not isObstacle((new_x, new_y)):
                 moved = True
             else:
                 reward += BLOCK_PENALTY

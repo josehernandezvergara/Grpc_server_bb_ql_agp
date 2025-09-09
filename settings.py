@@ -59,9 +59,7 @@ else:
     with open(CONFIG_PATH, "r") as f:
         config = json.load(f)
 
-# -----------------------
 # constantes leidas desde el config
-# -----------------------
 ALPHA = config.get("alpha", default_config["alpha"])
 GAMMA = config.get("gamma", default_config["gamma"])
 EPSILON = config.get("epsilon", default_config["epsilon"])
@@ -77,6 +75,7 @@ RESET_ON_TRAIN = config.get("reset_on_train", default_config["reset_on_train"])
 CHARGERS = [tuple(p) for p in config.get("charger_positions", default_config["charger_positions"])]
 ACTIONS = config.get("actions", default_config["actions"])
 NUM_ACTIONS = len(ACTIONS)
+OBSTACLES = config.get("obstacles", default_config["obstacles"])
 
 # zonas
 DROP_ZONE = tuple(config.get("drop_zone", default_config["drop_zone"]))

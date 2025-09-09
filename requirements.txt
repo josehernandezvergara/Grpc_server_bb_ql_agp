@@ -3,7 +3,7 @@ grpcio-tools
 numpy
 agentpy
 protobuf
-python -m pip install -r requirements.txt
+# python -m pip install -r requirements.txt
 
-para gnerar protos:
-python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. warehouse.proto
+# para gnerar protos:
+# python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. warehouse.proto

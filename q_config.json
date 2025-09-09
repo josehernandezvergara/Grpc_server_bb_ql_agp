@@ -1,29 +1,30 @@
 {
-  "alpha": 0.15,
+ "alpha": 0.15,
   "gamma": 0.99,
   "epsilon": 0.6,
   "epsilon_decay": 0.9997,
   "min_epsilon": 0.02,
-  "grid_size": 12,
+  "grid_size": 101,
+  "cell_size": 1.0,
+  "origin": [50, 50],
   "battery_bins": 11,
   "save_every_steps": 1000,
   "qfile": "qtable.pkl",
-  "charger_positions": [
-    [
-      0,
-      0
-    ]
+  "inference_file": "qtable_0_inference.pkl",
+  "snapshot_inference_on_save": true,
+  "reset_on_train": false,
+  "charger_positions": [[0,0]],
+  "actions": ["N","S","E","W","INTERACT","WAIT"],
+  "box_spawn_zones_world": [
+    [-5, 0, 5],
+    [-5, 0, -5]
   ],
-  "actions": [
-    "N",
-    "S",
-    "E",
-    "W",
-    "INTERACT",
-    "WAIT"
+  "agent_spawn_zones_world": [
+    [-45, 0, 45],
+    [-45, 0, 35],
+    [-45, 0, 25]
   ],
-    "drop_zone": [11, 11],   
-    "wait_zone": [0, 0],     
-    "load_zone": [0, 11],    
-    "zone_radius": 1         
+  "delivery_zone_world": [-45, 0, -45],
+  "zone_radius":1,
+  "obstacles": [[2, 3], [4, 1]]        
 }

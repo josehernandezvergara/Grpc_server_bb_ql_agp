@@ -8,12 +8,13 @@ import agentpy as ap
 from blackboard import BlackBoard
 from agents import WorkerAgent, Box
 from utils import grid_to_world
-from settings import GRID, LOAD_ZONE, DROP_ZONE, ZONE_RADIUS, SAVE_EVERY
+from settings import GRID, LOAD_ZONE, DROP_ZONE, ZONE_RADIUS, SAVE_EVERY, OBSTACLES
 from qlearning import qlearn
 
 class WarehouseModel(ap.Model):
     def setup(self):
         self.blackboard = BlackBoard(self)
+        self.obstacles = OBSTACLES
         self.workers = ap.AgentList(self, self.p.agents, WorkerAgent)
         self.workers_dict = {ag.id: ag for ag in self.workers}
         self.boxes = ap.AgentList(self, self.p.objects, Box)

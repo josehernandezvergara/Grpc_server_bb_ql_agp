@@ -55,6 +55,11 @@ class WarehouseServiceStub(object):
                 request_serializer=warehouse__pb2.AssignRequest.SerializeToString,
                 response_deserializer=warehouse__pb2.Ack.FromString,
                 _registered_method=True)
+        self.GetObstacles = channel.unary_unary(
+                '/warehouse.WarehouseService/GetObstacles',
+                request_serializer=warehouse__pb2.Empty.SerializeToString,
+                response_deserializer=warehouse__pb2.ObstaclesList.FromString,
+                _registered_method=True)
 
 
 class WarehouseServiceServicer(object):
@@ -89,6 +94,13 @@ class WarehouseServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetObstacles(self, request, context):
+        """get obstacles
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_WarehouseServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -111,6 +123,11 @@ def add_WarehouseServiceServicer_to_server(servicer, server):
                     servicer.AssignTask,
                     request_deserializer=warehouse__pb2.AssignRequest.FromString,
                     response_serializer=warehouse__pb2.Ack.SerializeToString,
+            ),
+            'GetObstacles': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetObstacles,
+                    request_deserializer=warehouse__pb2.Empty.FromString,
+                    response_serializer=warehouse__pb2.ObstaclesList.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -222,6 +239,33 @@ class WarehouseService(object):
             '/warehouse.WarehouseService/AssignTask',
             warehouse__pb2.AssignRequest.SerializeToString,
             warehouse__pb2.Ack.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetObstacles(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/warehouse.WarehouseService/GetObstacles',
+            warehouse__pb2.Empty.SerializeToString,
+            warehouse__pb2.ObstaclesList.FromString,
             options,
             channel_credentials,
             insecure,
