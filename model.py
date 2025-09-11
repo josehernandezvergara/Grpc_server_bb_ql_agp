@@ -24,70 +24,71 @@ import agentpy as ap
 from blackboard import BlackBoard
 from agents import WorkerAgent, Box
 from utils import grid_to_world
-from settings import GRID, LOAD_ZONE, DROP_ZONE, ZONE_RADIUS, SAVE_EVERY, BOX_SPAWN_ZONES, AGENT_SPAWN_ZONES, OBSTACLES, WAIT_ZONE
+from settings import GRID, LOAD_ZONE, DROP_ZONE, ZONE_RADIUS, SAVE_EVERY, BOX_SPAWN_ZONES, AGENT_SPAWN_ZONES, OBSTACLES
 from qlearning import qlearn
 
 class WarehouseModel(ap.Model):
     def setup(self):
+        # blackboard gestiona tareas y asignaciones
         self.blackboard = BlackBoard(self)
 
-        # inicializar obstaculos: si vienen desde settings los usamos tal cual,
-        # si no vienen, generamos 3 obstaculos "centrales" como puntos medios
-        # entre wait, load y drop para cubrir los 3 cuadrantes.
-        self.obstacles = set(OBSTACLES) if OBSTACLES else set()
+        # exponer obstaculos al modelo y permitir acceso desde agentes
+        self.obstacles = set(OBSTACLES) if OBSTACLES is not None else set()
 
-        if not self.obstacles:
-            # zonas base para generar puntos medios
-            zones = [WAIT_ZONE, LOAD_ZONE, DROP_ZONE]
-            mids = set()
-            for i in range(len(zones)):
-                for j in range(i+1, len(zones)):
-                    a = zones[i]
-                    b = zones[j]
-                    mx = (a[0] + b[0]) // 2
-                    mz = (a[1] + b[1]) // 2
-                    # clamp por si acaso
-                    mx = max(0, min(GRID-1, mx))
-                    mz = max(0, min(GRID-1, mz))
-                    mids.add((mx, mz))
-            self.obstacles = mids
-            # imprimir una sola vez el mapeo obstacles (grid->world)
-            mapped = [grid_to_world(o) for o in sorted(self.obstacles)]
-            print(f"[OBSTACLES] generados automaticamente (grid)={sorted(self.obstacles)} (world)={mapped}")
-        else:
-            # si vienen definidos, imprimir mapeo una sola vez
-            mapped = []
-            for o in sorted(self.obstacles):
-                try:
-                    mapped.append(grid_to_world(o))
-                except Exception:
-                    mapped.append(o)
-            print(f"[OBSTACLES] cargados desde config (grid)={sorted(self.obstacles)} (world)={mapped}")
-
-        # exponer spawn zones procesadas desde settings
-        self.box_spawn_zones = BOX_SPAWN_ZONES
-        self.agent_spawn_zones = AGENT_SPAWN_ZONES
-
-        # crear listas de agentes y cajas
+        # lista de agentes y cajas (agentpy)
         self.workers = ap.AgentList(self, self.p.agents, WorkerAgent)
         self.workers_dict = {ag.id: ag for ag in self.workers}
         self.boxes = ap.AgentList(self, self.p.objects, Box)
 
-        # spawn de cajas centrado en box_spawn_zones si estan definidas
-        for i, box in enumerate(self.boxes):
-            if self.box_spawn_zones:
-                g = self.box_spawn_zones[i % len(self.box_spawn_zones)]
-                rx, rz = g
-            else:
-                rx = LOAD_ZONE[0] + random.randint(-ZONE_RADIUS, ZONE_RADIUS)
-                rz = LOAD_ZONE[1] + random.randint(-ZONE_RADIUS, ZONE_RADIUS)
-            rx = max(0, min(GRID-1, rx))
-            rz = max(0, min(GRID-1, rz))
-            box.grid_pos = (rx, rz)
-            box.pos = grid_to_world(box.grid_pos)
-            box.target = DROP_ZONE
-            self.blackboard.add_task(box.id, box.grid_pos, box.target)
+        # registro de pares de colision ya logueados (para evitar spam)
+        self.collision_pairs_logged = set()
 
+        # spawn de cajas: si hay zonas de spawn en world definidas (BOX_SPAWN_ZONES),
+        # usamos esas coordenadas convertidas a grid (en settings ya se normalizo BOX_SPAWN_ZONES)
+        if BOX_SPAWN_ZONES:
+            for i, box in enumerate(self.boxes):
+                # usar un spawn zone de la lista, ciclando si hay menos zonas que cajas
+                zone = BOX_SPAWN_ZONES[i % len(BOX_SPAWN_ZONES)]
+                # agregar un pequeño offset aleatorio dentro del zone_radius para diversidad
+                rx = clamp = None
+                rx = zone[0] + random.randint(-ZONE_RADIUS, ZONE_RADIUS)
+                rz = zone[1] + random.randint(-ZONE_RADIUS, ZONE_RADIUS)
+                rx = max(0, min(GRID-1, rx))
+                rz = max(0, min(GRID-1, rz))
+                box.grid_pos = (rx, rz)
+                box.pos = grid_to_world(box.grid_pos)
+                box.target = DROP_ZONE
+                # añadir tarea al blackboard
+                self.blackboard.add_task(box.id, box.grid_pos, box.target)
+        else:
+            # fallback: colocacion aleatoria en grid
+            for i, box in enumerate(self.boxes):
+                rx = random.randrange(GRID)
+                rz = random.randrange(GRID)
+                box.grid_pos = (rx, rz)
+                box.pos = grid_to_world(box.grid_pos)
+                box.target = DROP_ZONE
+                self.blackboard.add_task(box.id, box.grid_pos, box.target)
+
+        # ajustar spawn de agentes: si AGENT_SPAWN_ZONES definido, reasignar sus posiciones
+        if AGENT_SPAWN_ZONES:
+            used = set()
+            for i, w in enumerate(self.workers):
+                # asignar posiciones secuenciales de la lista (ciclando si es necesario)
+                zone = AGENT_SPAWN_ZONES[i % len(AGENT_SPAWN_ZONES)]
+                gx = max(0, min(GRID-1, zone[0]))
+                gz = max(0, min(GRID-1, zone[1]))
+                # si la celda ya esta tomada, probar a desplazar un poco dentro del radius
+                attempts = 0
+                while (gx, gz) in used and attempts < 10:
+                    gx = max(0, min(GRID-1, zone[0] + random.randint(-ZONE_RADIUS, ZONE_RADIUS)))
+                    gz = max(0, min(GRID-1, zone[1] + random.randint(-ZONE_RADIUS, ZONE_RADIUS)))
+                    attempts += 1
+                w.grid_pos = (gx, gz)
+                w.pos = grid_to_world(w.grid_pos)
+                used.add((gx, gz))
+
+        # counters y estadisticas
         self.step_counter = 0
         self.total_deliveries = 0
 
@@ -105,4 +106,5 @@ class WarehouseModel(ap.Model):
             infos.append(info)
         self.step_counter += 1
         if self.step_counter % SAVE_EVERY == 0:
+            # guardar qtable y snapshot de inferencia si esta configurado
             qlearn.save(write_inference_snapshot=True)
