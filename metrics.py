@@ -1,7 +1,4 @@
 # metrics.py
-# modulo independiente para recolectar y visualizar metricas de entrenamiento
-# comentarios en minuscula y sin acentos
-
 from typing import List, Optional
 import os
 import csv
@@ -10,7 +7,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 class MetricsCollector:
-    """coleccion simple de metricas por paso."""
     def __init__(self):
         self.steps: List[int] = []
         self.rewards: List[float] = []
@@ -20,14 +16,14 @@ class MetricsCollector:
         self.trajectory = []  # lista de posiciones o estados del robot
 
     def record_position(self, position):
-        """registra la posicion (o estado) del robot en la trayectoria."""
+        """Registra la posición (o estado) del robot en la trayectoria."""
         self.trajectory.append(position)
 
     def save_trajectory_json(self, path: str):
-        """guarda la trayectoria en archivo json."""
+        """Guarda la trayectoria en un archivo TXT en formato JSON."""
         import json
         os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
-        with open(path, 'w') as f:
+        with open(path, 'w', encoding='utf-8') as f:
             json.dump(self.trajectory, f, indent=2, ensure_ascii=False)
 
     def record(self, step: int, reward: float, epsilon: float, deliveries: int):
@@ -46,6 +42,7 @@ class MetricsCollector:
 
     def save_plots(self, outdir: str = '.', prefix: Optional[str] = ''):
         os.makedirs(outdir, exist_ok=True)
+
         try:
             plt.figure(figsize=(10,4))
             plt.plot(self.steps, self.rewards, linewidth=0.6)
@@ -59,6 +56,7 @@ class MetricsCollector:
             plt.close()
         except Exception:
             pass
+
         try:
             plt.figure(figsize=(8,3))
             plt.plot(self.steps, self.eps)
@@ -72,6 +70,7 @@ class MetricsCollector:
             plt.close()
         except Exception:
             pass
+
         try:
             plt.figure(figsize=(8,3))
             plt.plot(self.steps, self.deliveries)

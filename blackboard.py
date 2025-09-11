@@ -1,6 +1,5 @@
 # blackboard.py
 # lista de tareas y asignaciones entre cajas y agentes
-# comentarios en minuscula y sin acentos
 
 class BlackBoard:
     def __init__(self, model):

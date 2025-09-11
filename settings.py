@@ -1,7 +1,6 @@
 # settings.py
 # carga de configuracion y constantes compartidas
-# comentarios en minuscula y sin acentos
-
+# comentarios en minuscula y sin acentos (segun convencion del proyecto)
 import os
 import json
 
@@ -15,6 +14,7 @@ default_config = {
     "min_epsilon": 0.05,
     "grid_size": 12,
     "cell_size": 1.0,
+    # origin: coordenada de grid que corresponde a world (0,0) o al punto de referencia
     "origin": [0, 0],
     "battery_bins": 11,
     "save_every_steps": 1000,
@@ -42,11 +42,11 @@ default_config = {
     "battery_zero_penalty": -50.0,
     "distance_reward": 1.0,
     "distance_penalty": -0.5,
-    # opcional: si present in config, entrenar en un cuadrante
-    # "train_quadrant": [xmin, ymin, xmax, ymax]
+    # optional training quadrant for focused training (xmin, ymin, xmax, ymax) in grid coords
+    "train_quadrant": None
 }
 
-# crear q_config.json si no existe (se escribe valores por defecto)
+# si no existe el json, escribir uno con valores por defecto
 if not os.path.exists(CONFIG_PATH):
     with open(CONFIG_PATH, "w") as f:
         json.dump(default_config, f, indent=2)
@@ -58,13 +58,14 @@ else:
 def _clamp(v, a, b):
     return max(a, min(b, v))
 
-# q-learning
+# q-learning hiperparametros
 ALPHA = config.get("alpha", default_config["alpha"])
 GAMMA = config.get("gamma", default_config["gamma"])
 EPSILON = config.get("epsilon", default_config["epsilon"])
 EPS_DECAY = config.get("epsilon_decay", default_config["epsilon_decay"])
 EPS_MIN = config.get("min_epsilon", default_config["min_epsilon"])
 
+# ambiente
 GRID = int(config.get("grid_size", default_config["grid_size"]))
 CELL_SIZE = float(config.get("cell_size", default_config["cell_size"]))
 ORIGIN = tuple(config.get("origin", default_config["origin"]))
@@ -75,21 +76,24 @@ QFILE = config.get("qfile", default_config["qfile"])
 INF_FILE = config.get("inference_file", default_config["inference_file"])
 SNAPSHOT_INF_ON_SAVE = config.get("snapshot_inference_on_save", default_config["snapshot_inference_on_save"])
 RESET_ON_TRAIN = config.get("reset_on_train", default_config["reset_on_train"])
+
 CHARGERS = [tuple(p) for p in config.get("charger_positions", default_config["charger_positions"])]
 ACTIONS = config.get("actions", default_config["actions"])
 NUM_ACTIONS = len(ACTIONS)
 
+# zonas
 DROP_ZONE = tuple(config.get("drop_zone", default_config["drop_zone"]))
 WAIT_ZONE = tuple(config.get("wait_zone", default_config["wait_zone"]))
 LOAD_ZONE = tuple(config.get("load_zone", default_config["load_zone"]))
 ZONE_RADIUS = int(config.get("zone_radius", default_config["zone_radius"]))
 
+# spawn world -> grid
 _BOX_SPAWN_WORLD = config.get("box_spawn_zones_world", default_config.get("box_spawn_zones_world", []))
 _AGENT_SPAWN_WORLD = config.get("agent_spawn_zones_world", default_config.get("agent_spawn_zones_world", []))
 _DELIVERY_WORLD = config.get("delivery_zone_world", default_config.get("delivery_zone_world", None))
 
 def _world_to_grid_tuple(p):
-    """convierte lista [x,y,z] world a tupla grid (gx,gz) usando origin y cell_size"""
+    """convierte lista/tripleta world [x,y,z] a tupla de grid (gx,gz) usando origin y cell_size"""
     if p is None or len(p) < 3:
         return None
     gx = int(round((float(p[0]) / CELL_SIZE) + ORIGIN[0]))
@@ -125,16 +129,6 @@ for p in _OBS_RAW:
         if g is not None:
             OBSTACLES.add(g)
 
-# optional train_quadrant
-TRAIN_QUADRANT_RAW = config.get("train_quadrant", None)
-TRAIN_QUADRANT = None
-if TRAIN_QUADRANT_RAW and isinstance(TRAIN_QUADRANT_RAW, (list, tuple)) and len(TRAIN_QUADRANT_RAW) == 4:
-    xmin = max(0, min(GRID-1, int(TRAIN_QUADRANT_RAW[0])))
-    ymin = max(0, min(GRID-1, int(TRAIN_QUADRANT_RAW[1])))
-    xmax = max(0, min(GRID-1, int(TRAIN_QUADRANT_RAW[2])))
-    ymax = max(0, min(GRID-1, int(TRAIN_QUADRANT_RAW[3])))
-    TRAIN_QUADRANT = (xmin, ymin, xmax, ymax)
-
 # reward shaping
 MOVE_COST_BASE = float(config.get("move_cost_base", default_config["move_cost_base"]))
 CARRY_MULTIPLIER = float(config.get("carry_multiplier", default_config["carry_multiplier"]))
@@ -147,24 +141,33 @@ BATTERY_ZERO_PENALTY = float(config.get("battery_zero_penalty", default_config["
 DISTANCE_REWARD = float(config.get("distance_reward", default_config["distance_reward"]))
 DISTANCE_PENALTY = float(config.get("distance_penalty", default_config["distance_penalty"]))
 
-# modo: env MODE o FORCE_INFERENCE
+# train quadrant opcional (xmin, ymin, xmax, ymax) en coordenadas grid
+_TRAIN_Q = config.get("train_quadrant", default_config.get("train_quadrant", None))
+TRAIN_QUADRANT = None
+if _TRAIN_Q:
+    try:
+        xmin, ymin, xmax, ymax = map(int, _TRAIN_Q)
+        xmin = _clamp(xmin, 0, GRID-1)
+        ymin = _clamp(ymin, 0, GRID-1)
+        xmax = _clamp(xmax, 0, GRID-1)
+        ymax = _clamp(ymax, 0, GRID-1)
+        TRAIN_QUADRANT = (xmin, ymin, xmax, ymax)
+    except Exception:
+        TRAIN_QUADRANT = None
+
+# modo
 MODE = os.getenv("MODE", "").strip().lower()
 if MODE == "":
     force_inf = os.getenv("FORCE_INFERENCE", "").strip().lower()
-    if force_inf in ("1","true","yes"):
+    if force_inf in ("1", "true", "yes"):
         MODE = "inference"
     else:
         MODE = "train"
 
-def in_zone(cell, zone, radius=ZONE_RADIUS):
-    """retorna true si la celda cell esta en radius de zone"""
-    if cell is None or zone is None:
-        return False
-    dx = abs(int(cell[0]) - int(zone[0]))
-    dz = abs(int(cell[1]) - int(zone[1]))
-    return dx <= radius and dz <= radius
-
-# impresiones de diagnostico (mantener formato de logs existente por compatibilidad)
+# debug prints
 print(f"[SETTINGS] mode={MODE} grid={GRID} cell_size={CELL_SIZE} origin={ORIGIN}")
 print(f"[SETTINGS] box_spawn_zones(grid)={BOX_SPAWN_ZONES} agent_spawn_zones(grid)={AGENT_SPAWN_ZONES} delivery_zone(grid)={DELIVERY_ZONE}")
+print(f"[SETTINGS] drop_zone(grid)={DROP_ZONE} wait_zone(grid)={WAIT_ZONE}")
 print(f"[SETTINGS] obstacles(grid)={sorted(list(OBSTACLES))}")
+if TRAIN_QUADRANT:
+    print(f"[SETTINGS] train_quadrant(grid)={TRAIN_QUADRANT}")

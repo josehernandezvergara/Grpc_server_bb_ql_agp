@@ -1,9 +1,4 @@
 # run_server_with_metrics.py
-# arranca el servidor grpc en modo similar a server.py pero incorpora metricas
-# instrumenta WorkerAgent.step y WarehouseModel.step para recolectar metricas y trayectorias
-# guarda metricas, graficas y trayectoria al recibir señal o periodicamente.
-# comentarios en minuscula y sin acentos
-
 import os
 import signal
 import sys
@@ -19,98 +14,71 @@ from grpc_service import WarehouseService
 import warehouse_pb2_grpc
 from qlearning import qlearn
 from agents import WorkerAgent
+from utils import grid_to_world
 
 GRPC_SERVER = None
 SAVE_DIR = 'metrics'
 os.makedirs(SAVE_DIR, exist_ok=True)
 MC = MetricsCollector()
 
-# periodo en segundos para guardar snapshot ligero de metricas/trajectory
-PERIODIC_SAVE_SEC = 10
-
 def instrument_classes():
-    """monkeypatch WorkerAgent.step y WarehouseModel.step para recolectar metricas y trayectorias."""
-
-    # wrap WorkerAgent.step to append returned info to model._last_agent_infos
+    """monkeypatch WorkerAgent.step y WarehouseModel.step para recolectar metricas."""
     orig_agent_step = WorkerAgent.step
 
     def wrapped_agent_step(self, *args, **kwargs):
-        # ejecutar el paso original
         info = orig_agent_step(self, *args, **kwargs)
         try:
-            # asegurar buffer en el modelo para la agregacion por paso
             if not hasattr(self.model, '_last_agent_infos'):
                 self.model._last_agent_infos = []
             self.model._last_agent_infos.append(info)
         except Exception:
-            # no queremos que un fallo en el buffer detenga la simulacion
             pass
-
-        # registrar posicion en la trayectoria global de metricas
-        try:
-            # preferimos grid_pos si existe, y pos (world) tambien
-            grid = getattr(self, 'grid_pos', None)
-            world = getattr(self, 'pos', None)
-            step_index = getattr(self.model, 'step_counter', 0)
-            MC.record_position({
-                "timestamp": time.time(),
-                "step": int(step_index),
-                "agent_id": int(self.id),
-                "grid_pos": grid,
-                "world_pos": world
-            })
-        except Exception:
-            pass
-
         return info
 
     WorkerAgent.step = wrapped_agent_step
 
-    # wrap WarehouseModel.step to call original and then record aggregated metrics
     from model import WarehouseModel as WM
     orig_model_step = WM.step
 
     def wrapped_model_step(self, *args, **kwargs):
-        # reset buffer
         try:
             self._last_agent_infos = []
         except Exception:
             pass
-
-        # call original step (this will call WorkerAgent.step which fills _last_agent_infos and MC.trajectory)
         result = orig_model_step(self, *args, **kwargs)
-
-        # aggregate reward and record metricas
         try:
             infos = getattr(self, '_last_agent_infos', []) or []
             step_reward = 0.0
             for info in infos:
                 if isinstance(info, dict):
                     step_reward += float(info.get('reward', 0.0))
-            # record metrics: use current step_counter as step id
+                    # registrar posicion en trajectory para cada agente
+                    agent_id = info.get('agent', None)
+                    grid_pos = info.get('pos', None)
+                    if grid_pos is not None:
+                        world = grid_to_world(grid_pos)
+                        MC.record_position({
+                            "timestamp": time.time(),
+                            "step": getattr(self, 'step_counter', 0),
+                            "agent_id": int(agent_id) if agent_id is not None else None,
+                            "grid_pos": [int(grid_pos[0]), int(grid_pos[1])],
+                            "world_pos": [float(world[0]), float(world[1]), float(world[2])]
+                        })
             MC.record(step=getattr(self, 'step_counter', 0), reward=step_reward, epsilon=qlearn.epsilon, deliveries=getattr(self, 'total_deliveries', 0))
         except Exception:
             pass
-
         return result
 
     WM.step = wrapped_model_step
 
 def handle_sig(signum, frame):
-    print('\nsignal recibido, guardando metricas, trayectoria y q-table...')
+    print('\nsignal recibido, guardando metricas y q-table...')
     try:
         MC.save_csv(os.path.join(SAVE_DIR, 'metrics_on_signal.csv'))
-    except Exception as e:
-        print('error guardando csv de metricas:', e)
-    try:
         MC.save_plots(SAVE_DIR, prefix='signal_')
-    except Exception as e:
-        print('error guardando plots:', e)
-    try:
-        # guardar trayectoria en json/txt
         MC.save_trajectory_json(os.path.join(SAVE_DIR, 'trajectory_on_signal.txt'))
     except Exception as e:
-        print('error guardando trayectoria:', e)
+        print('error guardando metricas:', e)
     try:
         qlearn.save(write_inference_snapshot=True)
     except Exception as e:
@@ -145,27 +113,14 @@ def main():
     server.add_insecure_port("0.0.0.0:50051")
     server.start()
 
-    last_save = time.time()
-
-    # loop principal: guardar metricas cada tanto y snapshot de trayectoria
     try:
         while True:
-            time.sleep(1)
-            now = time.time()
-            # guardar periodicamente un snapshot ligero
-            if now - last_save >= PERIODIC_SAVE_SEC:
-                last_save = now
-                try:
-                    if len(MC.steps) > 0:
-                        MC.save_csv(os.path.join(SAVE_DIR, 'metrics_latest.csv'))
-                except Exception:
-                    pass
-                try:
-                    # guardar trayectoria parcial (para evitar perder datos)
-                    if len(MC.trajectory) > 0:
-                        MC.save_trajectory_json(os.path.join(SAVE_DIR, 'trajectory_latest.txt'))
-                except Exception:
-                    pass
+            time.sleep(5)
+            try:
+                if len(MC.steps) > 0:
+                    MC.save_csv(os.path.join(SAVE_DIR, 'metrics_latest.csv'))
+            except Exception:
+                pass
     except KeyboardInterrupt:
         handle_sig(None, None)
 

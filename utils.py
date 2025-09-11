@@ -1,14 +1,14 @@
 # utils.py
 # utilidades de rejilla y conversiones
-# comentarios en minuscula y sin acentos
-
 from settings import GRID, BATTERY_BINS, ORIGIN, CELL_SIZE
 
 def clamp(v, a, b):
     return max(a, min(b, v))
 
 def grid_to_world(cell):
-    """convierte (gx,gz) -> [x,y,z] world. y fijo 0.5 para match unity."""
+    """convierte (gx,gz) -> [x, y, z] world.
+    y se fija en 0.5 para match con visualizacion en unity.
+    """
     gx, gz = cell
     ox, oz = ORIGIN
     x = (gx - ox) * CELL_SIZE
@@ -16,7 +16,9 @@ def grid_to_world(cell):
     return [float(x), 0.5, float(z)]
 
 def world_to_grid(pos):
-    """convierte [x,y,z] world -> (gx,gz) grid indices (redondea y clamp)."""
+    """convierte [x, y, z] world -> (gx, gz) grid indices.
+    redondea y clampa al rango [0, GRID-1].
+    """
     wx = float(pos[0])
     wz = float(pos[2])
     ox, oz = ORIGIN

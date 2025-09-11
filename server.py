@@ -1,7 +1,4 @@
 # server.py
-# entrypoint minimal: crea el modelo, el servidor grpc y maneja señales
-# comentarios en minuscula y sin acentos
-
 import signal
 import sys
 import time

@@ -1,8 +1,6 @@
 # agents.py
-# definicion de agentes y cajas (ap.agent)
-# comentarios en minuscula y sin acentos
-
 import random
+import numpy as np
 import agentpy as ap
 
 from settings import (GRID, CHARGERS, DROP_ZONE, WAIT_ZONE, ZONE_RADIUS,
@@ -15,11 +13,11 @@ from qlearning import qlearn
 
 class WorkerAgent(ap.Agent):
     def setup(self):
-        # spawn inicial cerca de wait_zone
+        # spawn inicial: intentamos ubicar cerca de wait_zone para evitar discrepancias
         attempts = 0
         placed = False
-        taken = { (w.grid_pos if hasattr(w,'grid_pos') else None) for w in getattr(self.model,'workers',[]) }
-        while not placed and attempts < 100:
+        taken = { (w.grid_pos if hasattr(w,'grid_pos') else None) for w in getattr(self.model,'workers',[]) if getattr(w,'grid_pos',None) is not None }
+        while not placed and attempts < 200:
             rx = WAIT_ZONE[0] + random.randint(-ZONE_RADIUS, ZONE_RADIUS)
             rz = WAIT_ZONE[1] + random.randint(-ZONE_RADIUS, ZONE_RADIUS)
             rx = clamp(rx, 0, GRID-1)
@@ -45,7 +43,7 @@ class WorkerAgent(ap.Agent):
         self.roam_target = None
 
     def _occupying_agent(self, cell):
-        """retorna agente que ocupa la celda o None"""
+        """retorna el agente que ocupa la celda o None"""
         for other in self.model.workers:
             if other is self: continue
             if getattr(other, "grid_pos", None) == cell:
@@ -54,9 +52,11 @@ class WorkerAgent(ap.Agent):
 
     def step(self):
         bb = self.model.blackboard
+        # si no tengo tarea, intentar obtener una
         if self.task is None:
             self.task = bb.get_task(self.id)
 
+        # determinar objetivo (goal)
         goal = None
         box_obj = None
 
@@ -64,9 +64,9 @@ class WorkerAgent(ap.Agent):
             box_id = self.task["obj_id"]
             box_obj = next((b for b in self.model.boxes if b.id == box_id), None)
 
-            # si la caja ya no existe o fue recogida por otro, cancelar tarea
             if (not self.carrying) and box_obj is None:
-                print(f"[TASK] Agent{self.id} cancela tarea Box{box_id}: caja no encontrada o ya recogida")
+                # cancelar tarea
+                print(f"[pickup] agent{self.id} cancela tarea Box{box_id}: caja no encontrada o ya recogida")
                 bb.complete_task_for_box(box_id)
                 self.task = None
                 self.roam_target = (clamp(WAIT_ZONE[0] + random.randint(-1,1), 0, GRID-1),
@@ -87,6 +87,7 @@ class WorkerAgent(ap.Agent):
                 self.roam_target = (wx, wz)
             goal = self.roam_target
 
+        # features
         x, y = self.grid_pos
         batt_bin = battery_to_bin(self.battery)
         carrying_flag = 1 if self.carrying else 0
@@ -108,10 +109,9 @@ class WorkerAgent(ap.Agent):
         if goal is not None:
             prev_dist = abs(goal[0]-x) + abs(goal[1]-y)
 
-        # movimiento N/S/E/W con comprobaciones de obstaculos y agentes
+        # acciones
         if action == "N":
-            new_x = x
-            new_y = clamp(y+1, 0, GRID-1)
+            new_x = x; new_y = clamp(y+1, 0, GRID-1)
             occupant = self._occupying_agent((new_x, new_y))
             if (new_x, new_y) != (x, y) and occupant is None and (new_x, new_y) not in getattr(self.model, "obstacles", set()):
                 moved = True
@@ -119,15 +119,12 @@ class WorkerAgent(ap.Agent):
                 reward += BLOCK_PENALTY
                 if occupant is not None:
                     pair = tuple(sorted((self.id, occupant.id)))
-                    key = ('aa', pair[0], pair[1])
-                    if key not in self.model.collision_monitor:
-                        print(f"[COLLISION] Agent{self.id} intento mover a {(new_x,new_y)} pero Agent{occupant.id} ocupa la celda")
-                        self.model.collision_monitor[key] = self.model.collision_ttl_default
+                    if pair not in self.model.collision_pairs_logged:
+                        print(f"[collision] agent{self.id} intento mover a {(new_x,new_y)} pero agent{occupant.id} ocupa la celda")
                         self.model.collision_pairs_logged.add(pair)
 
         elif action == "S":
-            new_x = x
-            new_y = clamp(y-1, 0, GRID-1)
+            new_x = x; new_y = clamp(y-1, 0, GRID-1)
             occupant = self._occupying_agent((new_x, new_y))
             if (new_x, new_y) != (x, y) and occupant is None and (new_x, new_y) not in getattr(self.model, "obstacles", set()):
                 moved = True
@@ -135,15 +132,12 @@ class WorkerAgent(ap.Agent):
                 reward += BLOCK_PENALTY
                 if occupant is not None:
                     pair = tuple(sorted((self.id, occupant.id)))
-                    key = ('aa', pair[0], pair[1])
-                    if key not in self.model.collision_monitor:
-                        print(f"[COLLISION] Agent{self.id} intento mover a {(new_x,new_y)} pero Agent{occupant.id} ocupa la celda")
-                        self.model.collision_monitor[key] = self.model.collision_ttl_default
+                    if pair not in self.model.collision_pairs_logged:
+                        print(f"[collision] agent{self.id} intento mover a {(new_x,new_y)} pero agent{occupant.id} ocupa la celda")
                         self.model.collision_pairs_logged.add(pair)
 
         elif action == "E":
-            new_x = clamp(x+1, 0, GRID-1)
-            new_y = y
+            new_x = clamp(x+1, 0, GRID-1); new_y = y
             occupant = self._occupying_agent((new_x, new_y))
             if (new_x, new_y) != (x, y) and occupant is None and (new_x, new_y) not in getattr(self.model, "obstacles", set()):
                 moved = True
@@ -151,15 +145,12 @@ class WorkerAgent(ap.Agent):
                 reward += BLOCK_PENALTY
                 if occupant is not None:
                     pair = tuple(sorted((self.id, occupant.id)))
-                    key = ('aa', pair[0], pair[1])
-                    if key not in self.model.collision_monitor:
-                        print(f"[COLLISION] Agent{self.id} intento mover a {(new_x,new_y)} pero Agent{occupant.id} ocupa la celda")
-                        self.model.collision_monitor[key] = self.model.collision_ttl_default
+                    if pair not in self.model.collision_pairs_logged:
+                        print(f"[collision] agent{self.id} intento mover a {(new_x,new_y)} pero agent{occupant.id} ocupa la celda")
                         self.model.collision_pairs_logged.add(pair)
 
         elif action == "W":
-            new_x = clamp(x-1, 0, GRID-1)
-            new_y = y
+            new_x = clamp(x-1, 0, GRID-1); new_y = y
             occupant = self._occupying_agent((new_x, new_y))
             if (new_x, new_y) != (x, y) and occupant is None and (new_x, new_y) not in getattr(self.model, "obstacles", set()):
                 moved = True
@@ -167,31 +158,26 @@ class WorkerAgent(ap.Agent):
                 reward += BLOCK_PENALTY
                 if occupant is not None:
                     pair = tuple(sorted((self.id, occupant.id)))
-                    key = ('aa', pair[0], pair[1])
-                    if key not in self.model.collision_monitor:
-                        print(f"[COLLISION] Agent{self.id} intento mover a {(new_x,new_y)} pero Agent{occupant.id} ocupa la celda")
-                        self.model.collision_monitor[key] = self.model.collision_ttl_default
+                    if pair not in self.model.collision_pairs_logged:
+                        print(f"[collision] agent{self.id} intento mover a {(new_x,new_y)} pero agent{occupant.id} ocupa la celda")
                         self.model.collision_pairs_logged.add(pair)
 
         elif action == "INTERACT":
-            # pickup oportunista: guardar start antes de cambiar box.grid_pos a None
             if (not self.carrying):
                 local_box = next((b for b in self.model.boxes if getattr(b,"grid_pos",None) == (x,y)), None)
                 if local_box is not None:
                     assigned_to = self.model.blackboard.assignments.get(local_box.id, None)
                     if assigned_to is None or assigned_to == self.id or (self.task is not None and self.task["obj_id"] == local_box.id):
-                        # guardar start antes de quitar grid_pos
-                        start_pos = local_box.grid_pos
                         self.carrying = True
                         self.carrying_box_id = local_box.id
                         local_box.carried_by = self.id
                         local_box.grid_pos = None
-                        local_box.pos = self.pos[:]  # posicion actual world
+                        local_box.pos = self.pos[:]
                         self.model.blackboard.assignments[local_box.id] = self.id
                         reward += PICKUP_REWARD
-                        print(f"[PICKUP] Agent{self.id} recogio Box{local_box.id} en {self.grid_pos}")
+                        print(f"[pickup] agent{self.id} recogio Box{local_box.id} en {self.grid_pos}")
                         if self.task is None:
-                            self.task = {"obj_id": local_box.id, "start": start_pos, "target": DROP_ZONE, "done": False}
+                            self.task = {"obj_id": local_box.id, "start": local_box.grid_pos, "target": DROP_ZONE, "done": False}
                     else:
                         reward += INTERACT_NOP_PENALTY
                 else:
@@ -217,7 +203,7 @@ class WorkerAgent(ap.Agent):
                             self.model.total_deliveries += 1
                         except Exception:
                             pass
-                        print(f"[DELIVERY] Agent{self.id} entrego Box{bid} en {(x,y)} (total={self.model.total_deliveries})")
+                        print(f"[delivery] agent{self.id} entrego Box{bid} en {(x,y)} (total={self.model.total_deliveries})")
                         self.roam_target = (clamp(WAIT_ZONE[0] + random.randint(-1,1), 0, GRID-1),
                                             clamp(WAIT_ZONE[1] + random.randint(-1,1), 0, GRID-1))
                     else:
@@ -254,10 +240,8 @@ class WorkerAgent(ap.Agent):
                 else:
                     if occ is not None:
                         pair = tuple(sorted((self.id, occ.id)))
-                        key = ('aa', pair[0], pair[1])
-                        if key not in self.model.collision_monitor:
-                            print(f"[COLLISION] Agent{self.id} fallback intento mover a {(tx,ty)} pero Agent{occ.id} ocupa la celda")
-                            self.model.collision_monitor[key] = self.model.collision_ttl_default
+                        if pair not in self.model.collision_pairs_logged:
+                            print(f"[collision] agent{self.id} fallback intento mover a {(tx,ty)} pero agent{occ.id} ocupa la celda")
                             self.model.collision_pairs_logged.add(pair)
 
         # aplicar movimiento si se movio

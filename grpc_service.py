@@ -1,7 +1,4 @@
 # grpc_service.py
-# implementacion del servicio grpc que expone getcoords, pickup, drop y assigntask
-# comentarios en minuscula y sin acentos
-
 import time
 import warehouse_pb2
 import warehouse_pb2_grpc
@@ -26,7 +23,7 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
             )
             objects.append(obj)
 
-        # cajas: si estan siendo llevadas, reportar en la posicion del agente
+        # cajas
         for box in self.model.boxes:
             if getattr(box, "carried_by", None) is not None:
                 carrier = self.model.workers_dict.get(box.carried_by, None)
@@ -50,13 +47,15 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
             )
             objects.append(obj)
 
-        # obstaculos: añadimos a getcoords en coordenadas world para unity
+        # obstaculos
         for obs in getattr(self.model, "obstacles", []):
             try:
                 wx, wy, wz = grid_to_world(obs)
             except Exception:
-                # si no es tupla grid, ignorar
-                continue
+                if isinstance(obs, (list, tuple)) and len(obs) >= 3:
+                    wx = float(obs[0]); wy = float(obs[1]); wz = float(obs[2])
+                else:
+                    continue
             obj = warehouse_pb2.ObjectData(
                 id=f"Obstacle{obs[0]}_{obs[1]}",
                 position=warehouse_pb2.Position(x=wx, y=wy, z=wz),
@@ -113,12 +112,22 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
         return warehouse_pb2.Ack(ok=True)
 
     def GetObstacles(self, request, context):
-        # devuelve indices de grid (x= gx, y= gz) segun proto
         obstacles = []
         for obs in getattr(self.model, "obstacles", set()):
             gx, gz = obs
+            world = grid_to_world((gx, gz))
             o = warehouse_pb2.Obstacle()
-            o.x = int(gx)
-            o.y = int(gz)
+            try:
+                setattr(o, "x", int(gx))
+            except Exception:
+                pass
+            try:
+                setattr(o, "y", 0)
+            except Exception:
+                pass
+            try:
+                setattr(o, "z", int(gz))
+            except Exception:
+                pass
             obstacles.append(o)
         return warehouse_pb2.ObstaclesList(obstacles=obstacles)
