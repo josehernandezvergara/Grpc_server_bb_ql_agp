@@ -1,4 +1,6 @@
 # run_server_with_metrics.py
+# script para ejecutar servidor + recoleccion de metricas sin tocar codigo principal
+
 import os
 import signal
 import sys
@@ -14,7 +16,6 @@ from grpc_service import WarehouseService
 import warehouse_pb2_grpc
 from qlearning import qlearn
 from agents import WorkerAgent
-from utils import grid_to_world
 
 GRPC_SERVER = None
 SAVE_DIR = 'metrics'
@@ -22,7 +23,6 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 MC = MetricsCollector()
 
 def instrument_classes():
-    """monkeypatch WorkerAgent.step y WarehouseModel.step para recolectar metricas."""
     orig_agent_step = WorkerAgent.step
 
     def wrapped_agent_step(self, *args, **kwargs):
@@ -52,18 +52,6 @@ def instrument_classes():
             for info in infos:
                 if isinstance(info, dict):
                     step_reward += float(info.get('reward', 0.0))
-                    # registrar posicion en trajectory para cada agente
-                    agent_id = info.get('agent', None)
-                    grid_pos = info.get('pos', None)
-                    if grid_pos is not None:
-                        world = grid_to_world(grid_pos)
-                        MC.record_position({
-                            "timestamp": time.time(),
-                            "step": getattr(self, 'step_counter', 0),
-                            "agent_id": int(agent_id) if agent_id is not None else None,
-                            "grid_pos": [int(grid_pos[0]), int(grid_pos[1])],
-                            "world_pos": [float(world[0]), float(world[1]), float(world[2])]
-                        })
             MC.record(step=getattr(self, 'step_counter', 0), reward=step_reward, epsilon=qlearn.epsilon, deliveries=getattr(self, 'total_deliveries', 0))
         except Exception:
             pass

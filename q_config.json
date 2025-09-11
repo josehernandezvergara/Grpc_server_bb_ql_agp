@@ -1,5 +1,5 @@
 {
- "alpha": 0.15,
+  "alpha": 0.15,
   "gamma": 0.99,
   "epsilon": 0.6,
   "epsilon_decay": 0.9997,
@@ -15,9 +15,14 @@
   "reset_on_train": false,
   "charger_positions": [[0,0]],
   "actions": ["N","S","E","W","INTERACT","WAIT"],
+  "drop_zone": [35, 11],
+  "wait_zone": [0, 0],
+  "load_zone": [0, 11],
+  "zone_radius": 2,
+  "task_assign_radius": 100,
   "box_spawn_zones_world": [
-    [-5, 0, 5],
-    [-5, 0, -5]
+    [-10, 0, 35],
+    [-15, 0, 45]
   ],
   "agent_spawn_zones_world": [
     [-45, 0, 45],
@@ -25,13 +30,5 @@
     [-45, 0, 25]
   ],
   "delivery_zone_world": [-45, 0, -45],
-  "zone_radius":1,
-"obstacles": [
-  [-60,-19,-15],
-  [-60,-19,15],
-  [-60,0,0],
-  [-60,19,-15],
-  [-60,19,15],
-  [-30,-19,-15],
-  [-30,-19,15]
-]}
+  "obstacles": []
+}

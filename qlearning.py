@@ -1,4 +1,6 @@
 # qlearning.py
+# gestor de q-learning: carga, guarda, elegir accion y actualizar
+
 import os
 import pickle
 import tempfile
@@ -19,12 +21,13 @@ class QLearning:
         self.inference_mode = False
 
         if MODE == "inference":
+            # intentar cargar snapshot de inferencia primero
             if os.path.exists(self.inference_file):
                 self._load_file(self.inference_file)
                 self.epsilon = 0.0
                 self.decay_epsilon = lambda: None
                 self.inference_mode = True
-                print(f"[Q] cargada tabla de inferencia: {self.inference_file} entradas={len(self.Q)}")
+                print(f"[q] cargada tabla de inferencia: {self.inference_file} entradas={len(self.Q)}")
             else:
                 if os.path.exists(self.file):
                     self._load_file(self.file)
@@ -36,22 +39,23 @@ class QLearning:
                             self.save(write_inference_snapshot=True)
                         except Exception:
                             pass
-                    print("[Q] inference solicitado: se cargo qfile como fallback")
+                    print("[q] inference solicitado: se cargo qfile como fallback")
                 else:
                     self.Q = {}
                     self.epsilon = 0.0
                     self.decay_epsilon = lambda: None
                     self.inference_mode = True
-                    print("[Q] modo inference y no se encontro archivo: tabla vacia iniciada (epsilon=0)")
+                    print("[q] modo inference y no se encontro archivo: tabla vacia iniciada (epsilon=0)")
         else:
+            # train
             if RESET_ON_TRAIN:
                 self.Q = {}
-                print("[Q] modo train: reset_on_train activo -> tabla vacia iniciada")
+                print("[q] modo train: reset_on_train activo -> tabla vacia iniciada")
             else:
                 if os.path.exists(self.file):
                     self._load_file(self.file)
                 else:
-                    print(f"[Q] modo train: no se encontro {self.file}, iniciar con tabla vacia")
+                    print(f"[q] modo train: no se encontro {self.file}, iniciar con tabla vacia")
 
     def _load_file(self, path):
         try:
@@ -59,11 +63,11 @@ class QLearning:
                 loaded = pickle.load(f)
             if isinstance(loaded, dict):
                 self.Q = {tuple(k): np.array(v, dtype=np.float32) for k, v in loaded.items()}
-                print(f"[Q] cargada {path} entradas={len(self.Q)}")
+                print(f"[q] cargada {path} entradas={len(self.Q)}")
             else:
-                print(f"[Q] formato inesperado en {path}, ignorando")
+                print(f"[q] formato inesperado en {path}, ignorando")
         except Exception as e:
-            print(f"[Q] error cargando {path}: {e}")
+            print(f"[q] error cargando {path}: {e}")
 
     def _ensure(self, key):
         if key not in self.Q:
@@ -101,16 +105,16 @@ class QLearning:
                 pickle.dump(serial, tf)
                 tmpname = tf.name
             os.replace(tmpname, self.file)
-            print(f"[Q] q-table guardada en {self.file} entries={len(self.Q)}")
+            print(f"[q] q-table guardada en {self.file} entries={len(self.Q)}")
             if write_inference_snapshot or SNAPSHOT_INF_ON_SAVE:
                 dirinf = os.path.dirname(os.path.abspath(self.inference_file)) or "."
                 with tempfile.NamedTemporaryFile("wb", delete=False, dir=dirinf) as tif:
                     pickle.dump(serial, tif)
                     tmpinf = tif.name
                 os.replace(tmpinf, self.inference_file)
-                print(f"[Q] snapshot para inferencia guardado en {self.inference_file}")
+                print(f"[q] snapshot para inferencia guardado en {self.inference_file}")
         except Exception as e:
-            print(f"[Q] error guardando q-table: {e}")
+            print(f"[q] error guardando q-table: {e}")
 
     def load_inference(self):
         if os.path.exists(self.inference_file):
@@ -118,7 +122,7 @@ class QLearning:
             self.epsilon = 0.0
             self.decay_epsilon = lambda: None
             self.inference_mode = True
-            print("[Q] inferencia: epsilon fijado a 0.0 desde inference_file")
+            print("[q] inferencia: epsilon fijado a 0.0 desde inference_file")
             return True
         return False
 

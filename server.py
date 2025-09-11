@@ -42,6 +42,7 @@ if __name__ == "__main__":
     print(f"servidor grpc escuchando en 0.0.0.0:50051... modo={MODE}")
     server.add_insecure_port("0.0.0.0:50051")
     server.start()
+    print("Servidor iniciado exitosamente. Esperando conexiones...")
     try:
         while True:
             time.sleep(60)

@@ -1,5 +1,6 @@
 # utils.py
 # utilidades de rejilla y conversiones
+
 from settings import GRID, BATTERY_BINS, ORIGIN, CELL_SIZE
 
 def clamp(v, a, b):
@@ -17,8 +18,7 @@ def grid_to_world(cell):
 
 def world_to_grid(pos):
     """convierte [x, y, z] world -> (gx, gz) grid indices.
-    redondea y clampa al rango [0, GRID-1].
-    """
+    redondea y clampa al rango [0, GRID-1]."""
     wx = float(pos[0])
     wz = float(pos[2])
     ox, oz = ORIGIN
