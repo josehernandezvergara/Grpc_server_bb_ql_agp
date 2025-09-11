@@ -1,30 +1,13 @@
 # qlearning.py
 # gestor de q-learning: carga, guarda, elegir accion y actualizar
-# editar: hiperparametros en q_config.json via settings.py
-# el objeto qlearn se crea al importar el modulo y refleja el modo (train/inference)
-#
-# descripcion de la clase qlearning y sus metodos:
-# - QLearning.Q: diccionario clave->vector de q-values (key = estado, vector len = num acciones)
-# - QLearning.epsilon: probabilidad de exploracion (epsilon-greedy)
-# - QLearning.alpha, gamma: hiperparametros de aprendizaje
-# - QLearning.file, inference_file: rutas para guardar/cargar la tabla
-# - QLearning.inference_mode: flag que indica que no se actualiza la Q
-#
-# metodos principales:
-# - _load_file(path): carga pickle serializado y convierte a numpy arrays
-# - _ensure(key): asegura que exista un vector q para la key y lo inicializa a zeros
-# - state_key(...): forma la tupla de estado usada como clave en la tabla
-# - choose_action(state_key): epsilon-greedy, devuelve indice de accion (int)
-# - update(s_key,a,r,s2_key): actualizacion q-learning clasica
-# - decay_epsilon(): reduce epsilon segun EPS_DECAY hasta EPS_MIN
-# - save(write_inference_snapshot=False): guarda tabla de forma atomica y opcional snapshot de inferencia
-# - load_inference(): intenta cargar el snapshot de inferencia y fija epsilon a 0
-
+# comentarios en minuscula y sin acentos
 
 import os
 import pickle
 import tempfile
 import random
+import threading
+import ast
 import numpy as np
 
 from settings import (QFILE, INF_FILE, SNAPSHOT_INF_ON_SAVE, RESET_ON_TRAIN,
@@ -39,6 +22,7 @@ class QLearning:
         self.file = file_path
         self.inference_file = inference_path
         self.inference_mode = False
+        self._save_lock = threading.Lock()
 
         if MODE == "inference":
             # intentar cargar snapshot de inferencia primero
@@ -77,12 +61,46 @@ class QLearning:
                 else:
                     print(f"[Q] modo train: no se encontro {self.file}, iniciar con tabla vacia")
 
+    def _parse_key(self, raw_key):
+        # intenta asegurar que la key sea una tupla de ints
+        if isinstance(raw_key, tuple):
+            return tuple(int(x) for x in raw_key)
+        if isinstance(raw_key, (list, np.ndarray)):
+            return tuple(int(x) for x in raw_key)
+        if isinstance(raw_key, str):
+            # intentamos ast.literal_eval despues de limpiar
+            try:
+                val = ast.literal_eval(raw_key)
+                if isinstance(val, (list, tuple)):
+                    return tuple(int(x) for x in val)
+            except Exception:
+                pass
+            # fallback: si es comas separatd numbers "1,2,3,4,5,6"
+            try:
+                parts = [p.strip() for p in raw_key.strip("()[] ").split(",") if p.strip() != ""]
+                if len(parts) > 0:
+                    nums = [int(float(p)) for p in parts]
+                    return tuple(nums)
+            except Exception:
+                pass
+        # no fue posible parsear -> devolver raw key tal cual (podria fallar despues)
+        return raw_key
+
     def _load_file(self, path):
         try:
             with open(path, "rb") as f:
                 loaded = pickle.load(f)
             if isinstance(loaded, dict):
-                self.Q = {tuple(k): np.array(v, dtype=np.float32) for k, v in loaded.items()}
+                newQ = {}
+                for k, v in loaded.items():
+                    parsed = self._parse_key(k)
+                    try:
+                        arr = np.array(v, dtype=np.float32)
+                    except Exception:
+                        # intentar convertir listas internas si vienen en str
+                        arr = np.array(list(v), dtype=np.float32)
+                    newQ[parsed] = arr
+                self.Q = newQ
                 print(f"[Q] cargada {path} entradas={len(self.Q)}")
             else:
                 print(f"[Q] formato inesperado en {path}, ignorando")
@@ -90,9 +108,11 @@ class QLearning:
             print(f"[Q] error cargando {path}: {e}")
 
     def _ensure(self, key):
-        if key not in self.Q:
-            self.Q[key] = np.zeros(NUM_ACTIONS, dtype=np.float32)
-        return self.Q[key]
+        # usar tuple de ints como key
+        k = tuple(int(x) for x in key) if isinstance(key, (list, tuple)) else key
+        if k not in self.Q:
+            self.Q[k] = np.zeros(NUM_ACTIONS, dtype=np.float32)
+        return self.Q[k]
 
     def state_key(self, x, y, carrying, batt_bin, rel_dx, rel_dy):
         return (int(x), int(y), int(carrying), int(batt_bin), int(rel_dx), int(rel_dy))
@@ -118,23 +138,25 @@ class QLearning:
         self.epsilon = max(EPS_MIN, self.epsilon * EPS_DECAY)
 
     def save(self, write_inference_snapshot=False):
-        try:
-            serial = {k: v.tolist() for k, v in self.Q.items()}
-            dirpath = os.path.dirname(os.path.abspath(self.file)) or "."
-            with tempfile.NamedTemporaryFile("wb", delete=False, dir=dirpath) as tf:
-                pickle.dump(serial, tf)
-                tmpname = tf.name
-            os.replace(tmpname, self.file)
-            print(f"[Q] q-table guardada en {self.file} entries={len(self.Q)}")
-            if write_inference_snapshot or SNAPSHOT_INF_ON_SAVE:
-                dirinf = os.path.dirname(os.path.abspath(self.inference_file)) or "."
-                with tempfile.NamedTemporaryFile("wb", delete=False, dir=dirinf) as tif:
-                    pickle.dump(serial, tif)
-                    tmpinf = tif.name
-                os.replace(tmpinf, self.inference_file)
-                print(f"[Q] snapshot para inferencia guardado en {self.inference_file}")
-        except Exception as e:
-            print(f"[Q] error guardando q-table: {e}")
+        # serializar con bloqueo para evitar garbling si se llama concurrentemente
+        with self._save_lock:
+            try:
+                serial = {k: v.tolist() for k, v in self.Q.items()}
+                dirpath = os.path.dirname(os.path.abspath(self.file)) or "."
+                with tempfile.NamedTemporaryFile("wb", delete=False, dir=dirpath) as tf:
+                    pickle.dump(serial, tf)
+                    tmpname = tf.name
+                os.replace(tmpname, self.file)
+                print(f"[Q] q-table guardada en {self.file} entries={len(self.Q)}")
+                if write_inference_snapshot or SNAPSHOT_INF_ON_SAVE:
+                    dirinf = os.path.dirname(os.path.abspath(self.inference_file)) or "."
+                    with tempfile.NamedTemporaryFile("wb", delete=False, dir=dirinf) as tif:
+                        pickle.dump(serial, tif)
+                        tmpinf = tif.name
+                    os.replace(tmpinf, self.inference_file)
+                    print(f"[Q] snapshot para inferencia guardado en {self.inference_file}")
+            except Exception as e:
+                print(f"[Q] error guardando q-table: {e}")
 
     def load_inference(self):
         if os.path.exists(self.inference_file):

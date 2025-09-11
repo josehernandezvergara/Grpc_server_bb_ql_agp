@@ -1,17 +1,6 @@
 # grpc_service.py
 # implementacion del servicio grpc que expone getcoords, pickup, drop y assigntask
-# no editar la interfaz grpc aqui salvo que se regenere warehouse_pb2.py
 # comentarios en minuscula y sin acentos
-#
-# descripcion de los rpc expuestos (segun warehouse.proto):
-# - GetCoords(request): avanza un paso del modelo y devuelve CoordsResponse con lista de ObjectData
-#   - objectdata.id: string id del objeto (AgentX, BoxY, Obstaclegx_gz)
-#   - objectdata.position: Position(x,y,z) en coordenadas world
-# - Pickup(request): request.agent (AgentN), request.box (BoxM) -> ack
-# - Drop(request): request.agent, request.box, request.position -> ack y completa tarea
-# - AssignTask(request): define target para una caja y asigna a un agente
-# - GetObstacles(request): devuelve ObstaclesList con obstaculos en world
-
 
 import time
 import warehouse_pb2
@@ -61,16 +50,13 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
             )
             objects.append(obj)
 
-        # obstaculos (agregar al mismo array para que unity solo consuma getcoords)
-        # ya no imprimimos el mapeo aqui (impresion unica al iniciar el modelo)
+        # obstaculos: añadimos a getcoords en coordenadas world para unity
         for obs in getattr(self.model, "obstacles", []):
             try:
                 wx, wy, wz = grid_to_world(obs)
             except Exception:
-                if isinstance(obs, (list, tuple)) and len(obs) >= 3:
-                    wx = float(obs[0]); wy = float(obs[1]); wz = float(obs[2])
-                else:
-                    continue
+                # si no es tupla grid, ignorar
+                continue
             obj = warehouse_pb2.ObjectData(
                 id=f"Obstacle{obs[0]}_{obs[1]}",
                 position=warehouse_pb2.Position(x=wx, y=wy, z=wz),
@@ -80,7 +66,6 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
 
         return warehouse_pb2.CoordsResponse(timestamp=int(time.time()), objects=objects)
 
-    # pickup/drop/assigntask/others siguen igual...
     def Pickup(self, request, context):
         aid = int(request.agent.replace("Agent", ""))
         bid = int(request.box.replace("Box", ""))
@@ -128,22 +113,12 @@ class WarehouseService(warehouse_pb2_grpc.WarehouseServiceServicer):
         return warehouse_pb2.Ack(ok=True)
 
     def GetObstacles(self, request, context):
+        # devuelve indices de grid (x= gx, y= gz) segun proto
         obstacles = []
         for obs in getattr(self.model, "obstacles", set()):
             gx, gz = obs
-            world = grid_to_world((gx, gz))
             o = warehouse_pb2.Obstacle()
-            try:
-                setattr(o, "x", float(world[0]))
-            except Exception:
-                pass
-            try:
-                setattr(o, "z", float(world[2]))
-            except Exception:
-                pass
-            try:
-                setattr(o, "y", float(world[2]))
-            except Exception:
-                pass
+            o.x = int(gx)
+            o.y = int(gz)
             obstacles.append(o)
         return warehouse_pb2.ObstaclesList(obstacles=obstacles)

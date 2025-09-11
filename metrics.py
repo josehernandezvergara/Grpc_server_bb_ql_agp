@@ -1,42 +1,16 @@
-"""
-metrics.py
-modulo independiente para recolectar y visualizar metricas de entrenamiento
-
-objetivo:
-- ser importado desde scripts de entrenamiento (por ejemplo test_q_learning.py)
-- no modifica ningun archivo existente del proyecto
-- provee un collector simple y funciones para guardar graficas/CSV
-
-uso basico (en tu script de entrenamiento):
-from metrics import MetricsCollector
-mc = MetricsCollector()
-... dentro del bucle de entrenamiento ...
-mc.record(step=step, reward=step_reward, epsilon=qlearn.epsilon, deliveries=model.total_deliveries)
-al final: mc.save_plots('outdir') ; mc.save_csv('outdir/metrics.csv')
-
-nota: matplotlib es requerida para guardar graficas (esta en requirements.txt del repo)
-"""
+# metrics.py
+# modulo independiente para recolectar y visualizar metricas de entrenamiento
+# comentarios en minuscula y sin acentos
 
 from typing import List, Optional
 import os
 import csv
-import math
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-
 class MetricsCollector:
-    """coleccion simple de metricas por paso.
-
-    atributos principales:
-    - steps: lista de indices de paso
-    - rewards: lista de reward total por paso
-    - eps: lista de epsilon
-    - deliveries: lista de entregas acumuladas
-    - meta: diccionario libre para metrics extra
-    """
-
+    """coleccion simple de metricas por paso."""
     def __init__(self):
         self.steps: List[int] = []
         self.rewards: List[float] = []
@@ -46,31 +20,23 @@ class MetricsCollector:
         self.trajectory = []  # lista de posiciones o estados del robot
 
     def record_position(self, position):
-        """Registra la posición (o estado) del robot en la trayectoria."""
+        """registra la posicion (o estado) del robot en la trayectoria."""
         self.trajectory.append(position)
 
     def save_trajectory_json(self, path: str):
-        """Guarda la trayectoria en un archivo TXT en formato JSON."""
+        """guarda la trayectoria en archivo json."""
         import json
         os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
         with open(path, 'w') as f:
             json.dump(self.trajectory, f, indent=2, ensure_ascii=False)
 
     def record(self, step: int, reward: float, epsilon: float, deliveries: int):
-        """registra las metricas de un paso.
-
-        - step: indice del paso (int)
-        - reward: reward agregado en el paso (float)
-        - epsilon: valor actual de epsilon (float)
-        - deliveries: numero de entregas acumuladas (int)
-        """
         self.steps.append(int(step))
         self.rewards.append(float(reward))
         self.eps.append(float(epsilon))
         self.deliveries.append(int(deliveries))
 
     def save_csv(self, path: str):
-        """guarda un csv con las series registradas"""
         os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
         with open(path, 'w', newline='') as f:
             w = csv.writer(f)
@@ -79,10 +45,7 @@ class MetricsCollector:
                 w.writerow([s, r, e, d])
 
     def save_plots(self, outdir: str = '.', prefix: Optional[str] = ''):
-        """genera y guarda tres graficas: reward por paso, epsilon, deliveries acumuladas"""
         os.makedirs(outdir, exist_ok=True)
-
-        # reward por paso
         try:
             plt.figure(figsize=(10,4))
             plt.plot(self.steps, self.rewards, linewidth=0.6)
@@ -96,8 +59,6 @@ class MetricsCollector:
             plt.close()
         except Exception:
             pass
-
-        # epsilon
         try:
             plt.figure(figsize=(8,3))
             plt.plot(self.steps, self.eps)
@@ -111,8 +72,6 @@ class MetricsCollector:
             plt.close()
         except Exception:
             pass
-
-        # deliveries acumuladas
         try:
             plt.figure(figsize=(8,3))
             plt.plot(self.steps, self.deliveries)
@@ -128,7 +87,6 @@ class MetricsCollector:
             pass
 
     def summary(self):
-        """retorna un resumen rapido de las metricas en memoria"""
         return {
             'steps': len(self.steps),
             'reward_sum': float(sum(self.rewards)) if self.rewards else 0.0,
@@ -138,4 +96,4 @@ class MetricsCollector:
         }
 
     def clear(self):
-        self.steps.clear(); self.rewards.clear(); self.eps.clear(); self.deliveries.clear(); self.meta.clear()
+        self.steps.clear(); self.rewards.clear(); self.eps.clear(); self.deliveries.clear(); self.meta.clear(); self.trajectory.clear()
