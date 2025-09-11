@@ -43,6 +43,18 @@ class MetricsCollector:
         self.eps: List[float] = []
         self.deliveries: List[int] = []
         self.meta = {}
+        self.trajectory = []  # lista de posiciones o estados del robot
+
+    def record_position(self, position):
+        """Registra la posición (o estado) del robot en la trayectoria."""
+        self.trajectory.append(position)
+
+    def save_trajectory_json(self, path: str):
+        """Guarda la trayectoria en un archivo TXT en formato JSON."""
+        import json
+        os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+        with open(path, 'w') as f:
+            json.dump(self.trajectory, f, indent=2, ensure_ascii=False)
 
     def record(self, step: int, reward: float, epsilon: float, deliveries: int):
         """registra las metricas de un paso.

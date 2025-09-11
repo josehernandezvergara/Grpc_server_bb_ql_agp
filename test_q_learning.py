@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 
 # Importa tu server.py (asegúrate que no arranca el servidor gRPC al importar)
 import server
+import metrics
 
 def run_test(agents=3, objects=5, steps=5000, save_plots=True, inference=False, log_every=500):
     """
@@ -73,6 +74,8 @@ def run_test(agents=3, objects=5, steps=5000, save_plots=True, inference=False, 
         # alternativa: usar model.total_deliveries
         return model.total_deliveries
 
+    mc = metrics.MetricsCollector()
+
     # Main loop
     start_time = time.time()
     for step in range(1, steps + 1):
@@ -83,6 +86,8 @@ def run_test(agents=3, objects=5, steps=5000, save_plots=True, inference=False, 
             info = ag.step()
             if info is not None:
                 step_reward += info.get("reward", 0.0)
+                # Guardar posición del agente principal (puedes guardar todos si lo deseas)
+                mc.record_position({"step": step, "agent_id": ag.id, "pos": ag.grid_pos})
 
         # Actualizar contador y guardados periódicos (imitando WarehouseModel.step)
         model.step_counter += 1
@@ -96,6 +101,8 @@ def run_test(agents=3, objects=5, steps=5000, save_plots=True, inference=False, 
         deliveries_history.append(model.total_deliveries)
         avg_window.append(step_reward)
 
+        mc.record(step=step, reward=step_reward, epsilon=server.qlearn.epsilon, deliveries=model.total_deliveries)
+
         # Logs periódicos
         if step % log_every == 0 or step == 1:
             avg_recent = sum(avg_window) / len(avg_window) if len(avg_window) > 0 else 0.0
@@ -104,6 +111,9 @@ def run_test(agents=3, objects=5, steps=5000, save_plots=True, inference=False, 
     # Guardar Q final
     print("Entrenamiento finalizado. Guardando Q-table...")
     server.qlearn.save()
+
+    # Guardar trayectoria al finalizar
+    mc.save_trajectory_json("trayectoria_robot.txt")
 
     elapsed = time.time() - start_time
     print(f"Tiempo total: {elapsed:.1f}s  Recompensa acumulada: {cumulative_reward:.2f}  Entregas: {model.total_deliveries}")
